@@ -1,0 +1,2 @@
+round,average weight differences,train losses,test losses,test accuracies,average AUCs,Kappas
+1,0,1.9410425236821172,2.4150939850290873,0.10224,0.5012444444444444,0.00248888888888888
