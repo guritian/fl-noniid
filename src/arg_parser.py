@@ -27,7 +27,7 @@ class Parser():
                             default="lenetBN", type=str)
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
-                            default=3, type=int)
+                            default=1, type=int)
         parser.add_argument("--s", help="用于对BN层进行L1正则",
                             default=0.0001, type=float)
 

@@ -701,15 +701,16 @@ class FederatedLearning1():
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
         #对每个client进行预训练，使
+        pretrain_epoch = 50
         for i in range(100):
-            weights, loss = Trainer().pre_train()(
-                50,
-                train_dataset,
-                device_idxs[i],
-                i,
-                device,
-                copy.deepcopy(model),  # Avoid continuously training same model on different devices
-                self.args
+            weights, loss = Trainer().pre_train(
+                epoch = pretrain_epoch,
+                dataset = train_dataset,
+                idxs = device_idxs[i],
+                device_num = i,
+                device = device,
+                model = copy.deepcopy(model),  # Avoid continuously training same model on different devices
+                args = self.args
             )
             device_weights[i] = weights
 
@@ -726,17 +727,22 @@ class FederatedLearning1():
             #TODO 这只是一个比较粗略的方案  真实情况下 不可能事先知道 所有类别
             #用来判断包含数据分类总数是否达标
             class_set = {}
+            train_devices = []
             # Select fraction of devices (minimum 1 device)
             #TODO 设置算法 挑选包含所有分类数据的devices （目前假设每个client上数据分类已知，在labels）
             while len(class_set)<10:
 
-                train_devices = random.sample(
+                temp_train_devices = random.sample(
                 range(self.args.num_devices),
                 max(1, int(self.args.num_devices * self.args.frac))
             )
-                for client_index in train_devices:
-                     class_set.add(client_labels[client_index])
-
+                for client_index in temp_train_devices:
+                    #取出具体client的类别列表
+                    temp = set(client_labels[client_index])
+                    before_class_set_len = len(class_set)
+                    class_set = class_set|temp
+                    if(before_class_set_len != len(class_set)):
+                        train_devices.append(client_index)
 
             print(f"\tDevices selected: {[x + 1 for x in train_devices]}\n")
 
@@ -1069,7 +1075,7 @@ if __name__ == "__main__":
     args = Parser().parse()
     print(args)
     if args.learning == "f" :
-        FederatedLearning(args).run()
+        FederatedLearning1(args).run()
     elif args.learning == "fd":
         FederatedDecoupleLearning(args).run()
     else:

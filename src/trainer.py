@@ -27,7 +27,7 @@ def updateBN(model,args):
 
 class Trainer():
 
-    def pre_train(self, epoch,dataset, idxs,device_num, device, model, args):
+    def pre_train(self, epoch, dataset, idxs, device_num, device, model, args):
         model.to(device)
         model.train()  # Train mode
 

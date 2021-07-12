@@ -70,7 +70,7 @@ class Utils():
         else:
             user_idxs = []
 
-        return train_dataset, test_dataset, user_idxs ,labels
+        return train_dataset, test_dataset, user_idxs,labels
 
     def iid_dist(self, dataset, args):
         data_per_device = math.floor(len(dataset)/args.num_devices)
@@ -148,7 +148,7 @@ class Utils():
                 print(sum)
                 """
 
-                return users_idxs
+                return users_idxs,users_classes
 
         else:   # Use non-IIDness
             if args.equal_dist:
