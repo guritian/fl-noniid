@@ -665,7 +665,8 @@ class FederatedLearning1():
         utils = Utils()
 
         # Get dataset and data distribution over devices
-        train_dataset, test_dataset, device_idxs = utils.get_dataset_dist(self.args)
+        # TODO client_labels 目前用来表示每个client上的数据分类
+        train_dataset, test_dataset, device_idxs,client_labels = utils.get_dataset_dist(self.args)
 
         # Get number of classes (MNIST: 10, CIFAR10: 10)
         if self.args.dataset == "mnist":
@@ -723,13 +724,19 @@ class FederatedLearning1():
 
             #用于 计数  所有类别是否都加入到联邦学习中
             #TODO 这只是一个比较粗略的方案  真实情况下 不可能事先知道 所有类别
-            true_device_count = 0
+            #用来判断包含数据分类总数是否达标
+            class_set = {}
             # Select fraction of devices (minimum 1 device)
+            #TODO 设置算法 挑选包含所有分类数据的devices （目前假设每个client上数据分类已知，在labels）
+            while len(class_set)<10:
 
-            train_devices = random.sample(
+                train_devices = random.sample(
                 range(self.args.num_devices),
                 max(1, int(self.args.num_devices * self.args.frac))
             )
+                for client_index in train_devices:
+                     class_set.add(client_labels[client_index])
+
 
             print(f"\tDevices selected: {[x + 1 for x in train_devices]}\n")
 

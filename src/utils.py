@@ -58,16 +58,19 @@ class Utils():
                 download=True,
                 transform=transform
             )
+        labels = []
 
         if args.learning == "f" or args.learning == "fd" or args.learning == "fd":
             if args.iid:
                 user_idxs = self.iid_dist(train_dataset, args)
             else:
-                user_idxs = self.noniid_dist(train_dataset, args)
+                #TODO  假设non-iid数据只包含一类数据，返回这一类数据的标签
+
+                user_idxs ,labels = self.noniid_dist(train_dataset, args)
         else:
             user_idxs = []
 
-        return train_dataset, test_dataset, user_idxs
+        return train_dataset, test_dataset, user_idxs ,labels
 
     def iid_dist(self, dataset, args):
         data_per_device = math.floor(len(dataset)/args.num_devices)
