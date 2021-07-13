@@ -19,12 +19,12 @@ class Parser():
         parser.add_argument("--optim", help="optimizer (sgd, adagrad, adam)", 
                             default="sgd", type=str)
         parser.add_argument("--dataset", help="dataset (mnist, cifar10)", 
-                            default="cifar10", type=str)
+                            default="mnist", type=str)
         ################################################################################
         #常用更改配置
 
         parser.add_argument("--model", help="model (lenet, resnet18, vgg11)",
-                            default="lenetBN", type=str)
+                            default="lenet", type=str)
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
                             default=1, type=int)
@@ -36,7 +36,7 @@ class Parser():
         parser.add_argument("--frac", help="fraction of devices", 
                             default=0.1, type=float)
         parser.add_argument("--num_devices", help="number of devices", 
-                            default=100, type=int)
+                            default=50, type=int)
         parser.add_argument("--max_data_per_device", help="max amount of data per device", 
                             default=0, type=int)
                             
@@ -68,7 +68,7 @@ class Parser():
         parser.add_argument("--save_results", help="save results to file", 
                             default=1, type=int)
         parser.add_argument("--learning", help="federated learning (f) or centralized learning (c) or federated decouple learning (fd) ",
-                            default="f", type=str)
+                            default="f1", type=str)
         parser.add_argument("--cal_para_diff", help="calculate parameters' difference", 
                             default=0, type=int)
         return parser.parse_args()

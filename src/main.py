@@ -702,7 +702,7 @@ class FederatedLearning1():
             device_weights.append(copy.deepcopy(model.state_dict()))
         #对每个client进行预训练，使
         pretrain_epoch = 50
-        for i in range(100):
+        for i in range(self.args.num_devices):
             weights, loss = Trainer().pre_train(
                 epoch = pretrain_epoch,
                 dataset = train_dataset,
@@ -714,7 +714,8 @@ class FederatedLearning1():
             )
             device_weights[i] = weights
 
-
+        #赋一个初值
+        avg_weights = device_weights[0]
         for round in tqdm(range(self.args.round)):
             # Train step
             print(f"\nRound {round + 1} Training:")
@@ -726,7 +727,7 @@ class FederatedLearning1():
             #用于 计数  所有类别是否都加入到联邦学习中
             #TODO 这只是一个比较粗略的方案  真实情况下 不可能事先知道 所有类别
             #用来判断包含数据分类总数是否达标
-            class_set = {}
+            class_set = set()
             train_devices = []
             # Select fraction of devices (minimum 1 device)
             #TODO 设置算法 挑选包含所有分类数据的devices （目前假设每个client上数据分类已知，在labels）
@@ -748,6 +749,11 @@ class FederatedLearning1():
 
             # Train on each device and return weights and loss
             for device_num in train_devices:
+                #第一轮时  都采用预训练的local weight进行训练
+                if round == 0:
+                    model.load_state_dict(device_weights[device_num])
+                else:
+                    model.load_state_dict(avg_weights)
                 weights, loss = Trainer().train(
                     train_dataset,
                     device_idxs[device_num],
@@ -762,7 +768,8 @@ class FederatedLearning1():
                 local_losses.append(loss)
 
             avg_weights = utils.fed_avg(local_weights)  # Federated averaging
-
+            for device_num in train_devices:
+                device_weights[device_num] = avg_weights
             model.load_state_dict(avg_weights)  # Load new weights
 
             if self.args.cal_para_diff:
@@ -1074,8 +1081,10 @@ if __name__ == "__main__":
     #non-iid(1)   50round
     args = Parser().parse()
     print(args)
-    if args.learning == "f" :
+    if args.learning == "f1" :
         FederatedLearning1(args).run()
+    elif args.learning == "f" :
+        FederatedLearning(args).run()
     elif args.learning == "fd":
         FederatedDecoupleLearning(args).run()
     else:
