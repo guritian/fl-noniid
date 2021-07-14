@@ -1084,7 +1084,7 @@ if __name__ == "__main__":
     if args.learning == "f1" :
         FederatedLearning1(args).run()
     elif args.learning == "f" :
-        FederatedLearning(args).run()
+        FederatedLearning1(args).run()
     elif args.learning == "fd":
         FederatedDecoupleLearning(args).run()
     else:

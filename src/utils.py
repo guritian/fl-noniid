@@ -60,7 +60,7 @@ class Utils():
             )
         labels = []
 
-        if args.learning == "f" or args.learning == "fd" or args.learning == "fd":
+        if args.learning == "f" or args.learning == "fd" or args.learning == "f1":
             if args.iid:
                 user_idxs = self.iid_dist(train_dataset, args)
             else:

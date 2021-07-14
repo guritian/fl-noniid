@@ -19,7 +19,7 @@ class Parser():
         parser.add_argument("--optim", help="optimizer (sgd, adagrad, adam)", 
                             default="sgd", type=str)
         parser.add_argument("--dataset", help="dataset (mnist, cifar10)", 
-                            default="mnist", type=str)
+                            default="cifar10", type=str)
         ################################################################################
         #常用更改配置
 
@@ -68,7 +68,7 @@ class Parser():
         parser.add_argument("--save_results", help="save results to file", 
                             default=1, type=int)
         parser.add_argument("--learning", help="federated learning (f) or centralized learning (c) or federated decouple learning (fd) ",
-                            default="f1", type=str)
+                            default="f", type=str)
         parser.add_argument("--cal_para_diff", help="calculate parameters' difference", 
                             default=0, type=int)
         return parser.parse_args()

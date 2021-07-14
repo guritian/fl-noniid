@@ -49,7 +49,7 @@ class Trainer():
             )
 
         dataloader = DataLoader(
-            Sampler(dataset, idxs) if args.learning == "f" or args.learning == "fd" else dataset,
+            Sampler(dataset, idxs) if args.learning == "f" or args.learning == "fd" or args.learning == "f1" else dataset,
             batch_size=args.bs,
             shuffle=True
         )
