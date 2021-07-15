@@ -18,6 +18,7 @@ from trainer import Trainer, Tester
 import copy
 from models import *
 from torch.utils.data import Dataset, DataLoader
+from sklearn.cluster import KMeans
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -713,6 +714,28 @@ class FederatedLearning1():
                 args = self.args
             )
             device_weights[i] = weights
+        #对client进行聚类
+        kmeans_weights = []
+        for i in range(self.args.num_devices):
+            first = True
+            for param_tensor in device_weights[i]:
+                numpy_para = device_weights[i][param_tensor].cpu().numpy()
+                numpy_para = numpy_para.reshape(-1)
+                if first:
+                    transform_feature = numpy_para
+                    first = False
+                else:
+                    transform_feature = np.append(transform_feature,numpy_para)
+                #print(transform_feature.shape)
+            kmeans_weights.append(transform_feature)
+        kmean = KMeans(n_clusters=10)
+        kmean.fit(kmeans_weights)
+        labels = kmean.labels_
+        centers = kmean.cluster_centers_
+        client_list_by_label = [[] for i in range(self.args.class_num)]
+        for i in range(self.args.num_devices):
+            #在相应数据类别的列表中 加入设备index
+            client_list_by_label[labels[i]].append(i)
 
         #赋一个初值
         avg_weights = device_weights[0]
@@ -723,28 +746,31 @@ class FederatedLearning1():
             local_weights = []
             local_losses = []
 
-
+            train_devices = []
             #用于 计数  所有类别是否都加入到联邦学习中
             #TODO 这只是一个比较粗略的方案  真实情况下 不可能事先知道 所有类别
             #用来判断包含数据分类总数是否达标
-            class_set = set()
-            train_devices = []
+            #class_set = set()
+
             # Select fraction of devices (minimum 1 device)
             #TODO 设置算法 挑选包含所有分类数据的devices （目前假设每个client上数据分类已知，在labels）
-            while len(class_set)<10:
-
-                temp_train_devices = random.sample(
-                range(self.args.num_devices),
-                max(1, int(self.args.num_devices * self.args.frac))
-            )
-                for client_index in temp_train_devices:
-                    #取出具体client的类别列表
-                    temp = set(client_labels[client_index])
-                    before_class_set_len = len(class_set)
-                    class_set = class_set|temp
-                    if(before_class_set_len != len(class_set)):
-                        train_devices.append(client_index)
-
+            #while len(class_set)<10:
+            #     此注释方法选取client 通过真实的数据类别  没有考虑隐私性
+            #     temp_train_devices = random.sample(
+            #     range(self.args.num_devices),
+            #     max(1, int(self.args.num_devices * self.args.frac))
+            # )
+            #     for client_index in temp_train_devices:
+            #         #取出具体client的类别列表
+            #         temp = set(client_labels[client_index])
+            #         before_class_set_len = len(class_set)
+            #         class_set = class_set|temp
+            #         if(before_class_set_len != len(class_set)):
+            #             train_devices.append(client_index)
+            #根据聚类的结果 对client进行选择
+            for i in range(self.args.class_num):
+                random_index = random.choice(range(len(client_list_by_label[i])))
+                train_devices.append(client_list_by_label[i][random_index])
             print(f"\tDevices selected: {[x + 1 for x in train_devices]}\n")
 
             # Train on each device and return weights and loss
@@ -795,6 +821,10 @@ class FederatedLearning1():
                 copy.deepcopy(model),
                 self.args
             )
+            scalar = 'accuracy'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)
+            writer.add_scalar(scalar,
+                              accuracy,
+                              round)
 
             print(f"\tRound {round + 1} | Average accuracy: {accuracy}")
             print(f"\tRound {round + 1} | Average testing loss: {loss}\n")
@@ -819,70 +849,10 @@ class FederatedLearning1():
                 if round > 0:
                     if global_accuracies[-2] + self.args.stop_if_improvment_lt / 100 >= global_accuracies[-1]:
                         break
-        #对所有的client进行一轮 只训分类器
-        modelByDecouple = LeNet1(num_classes)
-        modelByDecouple.load_state_dict(final_weight)
-        local_decouple_accuracy = []
-        print(f"Final accuracy: {global_accuracies[-1]}")
-        for device_num in range(10):
-        # for device_num in range(self.args.num_devices):
-
-            print(f"device {device_num}  FedAvg Testing:")
-            #每个client先测一下使用FedAvg的准确率
-            accuracy, loss, auc, kappa = Tester().test(
-                test_dataset,
-                round,
-                device,
-                copy.deepcopy(modelByDecouple),
-                self.args
-            )
-            print(f"\tdevice {device_num} | Average accuracy: {accuracy}")
-            print(f"\tdevice {device_num} | Average testing loss: {loss}\n")
-            print(f"\tdevice {device_num} | Average AUC: {auc}")
-            print(f"\tdevice {device_num} | Kappa: {kappa}\n")
-
-
-            #每个Local Client都使用 FedAvg算法得到的最终模型参数进行 解耦分类器训练
-            weights, loss = Trainer().train(
-                train_dataset,
-                device_idxs[device_num],
-                round,
-                device_num,
-                device,
-                copy.deepcopy(modelByDecouple),  # Avoid continuously training same model on different devices
-                self.args
-            )
-            #对经过fine tune的 Local Client 进行测试
-            model.load_state_dict(weights)
-            # Test step
-            print(f"device {device_num}  FDL Testing:")
-            accuracy, loss, auc, kappa = Tester().test(
-                test_dataset,
-                round,
-                device,
-                copy.deepcopy(model),
-                self.args
-            )
-            local_decouple_accuracy.append(accuracy)
-            print(f"\tdevice {device_num} | Average accuracy: {accuracy}")
-            print(f"\tdevice {device_num} | Average testing loss: {loss}\n")
-            print(f"\tdevice {device_num} | Average AUC: {auc}")
-            print(f"\tdevice {device_num} | Kappa: {kappa}\n")
-            print("-----------------------------------------------------------------------")
-
-
-
-
-        end = time.time()
-        print(f"\nTime used: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
-
-        print(f"Final accuracy: {global_accuracies[-1]}")
-        print(f"经过fine tuning 后各个Client的测试准确率：")
-        print(local_decouple_accuracy)
-        print(f"Final loss: {global_test_losses[-1]}\n")
 
         # Write results to file
         if self.args.save_results:
+
             utils.save_results_to_file(
                 self.args,
                 avg_weights_diff,
@@ -892,6 +862,11 @@ class FederatedLearning1():
                 global_aucs,
                 global_kappas
             )
+        filename = str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)
+        f = open("./results/"+filename+"_fed_cluster.txt","w")
+        f.writelines(str(global_accuracies))
+        f.close()
+
 
 
 

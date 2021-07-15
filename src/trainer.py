@@ -34,7 +34,7 @@ class Trainer():
         if args.optim == "sgd":
             optimizer = torch.optim.SGD(
                 model.parameters(),
-                lr=args.lr,
+                lr=0.01,
                 momentum=args.sgd_momentum
             )
         elif args.optim == "adagrad":

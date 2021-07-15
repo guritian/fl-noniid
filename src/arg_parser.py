@@ -11,7 +11,7 @@ class Parser():
         parser.add_argument("--epoch", help="local epochs per communication round", 
                             default=10, type=int)
         parser.add_argument("--round", help="communication rounds", 
-                            default=200, type=int)
+                            default=250, type=int)
         parser.add_argument("--lr", help="learning rate",
                             default=0.01, type=float)
         parser.add_argument("--sgd_momentum", help="sgd momentum", 
@@ -28,6 +28,9 @@ class Parser():
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
                             default=1, type=int)
+        parser.add_argument("--class_num",
+                            help="数据集 数据类别总数",
+                            default=10, type=int)
         parser.add_argument("--s", help="用于对BN层进行L1正则",
                             default=0.0001, type=float)
 
