@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 cur_path=os.path.abspath(os.path.dirname(__file__))
@@ -702,7 +703,7 @@ class FederatedLearning1():
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
         #对每个client进行预训练，使
-        pretrain_epoch = 50
+        pretrain_epoch = self.args.pretrain_epoch
         for i in range(self.args.num_devices):
             weights, loss = Trainer().pre_train(
                 epoch = pretrain_epoch,
@@ -728,11 +729,11 @@ class FederatedLearning1():
                     transform_feature = np.append(transform_feature,numpy_para)
                 #print(transform_feature.shape)
             kmeans_weights.append(transform_feature)
-        kmean = KMeans(n_clusters=10)
+        kmean = KMeans(n_clusters=self.args.cluster_num)
         kmean.fit(kmeans_weights)
         labels = kmean.labels_
         centers = kmean.cluster_centers_
-        client_list_by_label = [[] for i in range(self.args.class_num)]
+        client_list_by_label = [[] for i in range(self.args.cluster_num)]
         for i in range(self.args.num_devices):
             #在相应数据类别的列表中 加入设备index
             client_list_by_label[labels[i]].append(i)
@@ -768,9 +769,15 @@ class FederatedLearning1():
             #         if(before_class_set_len != len(class_set)):
             #             train_devices.append(client_index)
             #根据聚类的结果 对client进行选择
-            for i in range(self.args.class_num):
-                random_index = random.choice(range(len(client_list_by_label[i])))
-                train_devices.append(client_list_by_label[i][random_index])
+
+            #从每个簇中抽一台参与模型聚合
+            for i in range(self.args.cluster_num):
+                #从每个簇中抽取client的数量
+                choose_num = math.ceil(self.args.num_devices * self.args.frac/self.args.cluster_num)
+                random_index = random.sample(range(len(client_list_by_label[i])),choose_num)
+                #random_index = random.choice(range(len(client_list_by_label[i])))
+                for index in random_index:
+                    train_devices.append(client_list_by_label[i][index])
             print(f"\tDevices selected: {[x + 1 for x in train_devices]}\n")
 
             # Train on each device and return weights and loss
@@ -821,7 +828,7 @@ class FederatedLearning1():
                 copy.deepcopy(model),
                 self.args
             )
-            scalar = 'accuracy'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)
+            scalar = 'accuracy'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)+"_cluster"+str(self.args.cluster_num)
             writer.add_scalar(scalar,
                               accuracy,
                               round)

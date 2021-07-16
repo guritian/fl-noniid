@@ -27,19 +27,26 @@ class Parser():
                             default="lenet", type=str)
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
-                            default=1, type=int)
+                            default=3, type=int)
         parser.add_argument("--class_num",
                             help="数据集 数据类别总数",
                             default=10, type=int)
         parser.add_argument("--s", help="用于对BN层进行L1正则",
                             default=0.0001, type=float)
 
+        parser.add_argument("--pretrain_epoch",
+                            help="预训练轮次",
+                            default=200, type=int)
+        parser.add_argument("--cluster_num",
+                            help="聚类中心数量",
+                            default=10, type=int)
+
         ################################################################################
 
         parser.add_argument("--frac", help="fraction of devices", 
                             default=0.1, type=float)
         parser.add_argument("--num_devices", help="number of devices", 
-                            default=50, type=int)
+                            default=100, type=int)
         parser.add_argument("--max_data_per_device", help="max amount of data per device", 
                             default=0, type=int)
                             

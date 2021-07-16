@@ -92,7 +92,7 @@ class FederatedLearning():
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
         #对每个client进行预训练，使
-        pretrain_epoch = 50
+        pretrain_epoch = self.args.pretrain_epoch
         for i in range(self.args.num_devices):
             weights, loss = Trainer().pre_train(
                 epoch = pretrain_epoch,

@@ -20,6 +20,7 @@ from models import *
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.cluster import KMeans
+from sklearn.cluster import MeanShift
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -121,16 +122,27 @@ class test():
                     transform_feature = np.append(transform_feature,numpy_para)
                 #print(transform_feature.shape)
             kmeans_weights.append(transform_feature)
-        kmean = KMeans(n_clusters=10)
-        kmean.fit(kmeans_weights)
-        labels = kmean.labels_
-        centers = kmean.cluster_centers_
-        client_list_by_label = [[] for i in range(self.args.class_num)]
+        # kmean = KMeans(n_clusters=5)
+        # kmean.fit(kmeans_weights)
+        # labels = kmean.labels_
+        # centers = kmean.cluster_centers_
+        # client_list_by_label = [[] for i in range(5)]
+        # for i in range(self.args.num_devices):
+        #     # 在相应数据类别的列表中 加入设备index
+        #     client_list_by_label[labels[i]].append(i)
+        #print(client_list_by_label)
+
+        ms = MeanShift()
+        # 得到Mean-Sift方法
+        ms.fit(kmeans_weights)
+        labels1 = ms.labels_
+        labels_unique = np.unique(labels1)
+        n_clusters_ = len(labels_unique)
+        client_list_by_label1 = [[] for i in range(n_clusters_)]
         for i in range(self.args.num_devices):
             # 在相应数据类别的列表中 加入设备index
-            client_list_by_label[labels[i]].append(i)
-        print(client_list_by_label)
-
+            client_list_by_label1[labels1[i]].append(i)
+        print(client_list_by_label1)
 
 
 if __name__ == "__main__":
