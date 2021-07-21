@@ -20,7 +20,10 @@ from models import *
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.cluster import KMeans
-from sklearn.cluster import MeanShift
+import sklearn
+from sklearn.cluster import MeanShift,DBSCAN
+from sklearn.manifold import TSNE
+
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -96,19 +99,29 @@ class test():
         kmeans_weights = []
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
-        # 对每个client进行预训练，使
-        pretrain_epoch = 200
-        for i in range(self.args.num_devices):
-            weights, loss = Trainer().pre_train(
-                epoch=pretrain_epoch,
-                dataset=train_dataset,
-                idxs=device_idxs[i],
-                device_num=i,
-                device=device,
-                model=copy.deepcopy(model),  # Avoid continuously training same model on different devices
-                args=self.args
-            )
-            device_weights[i] = weights
+
+        flag = False
+        if flag:
+            # 对每个client进行预训练，使
+            pretrain_epoch = 300
+
+            for i in range(self.args.num_devices):
+                weights, loss = Trainer().pre_train(
+                    epoch=pretrain_epoch,
+                    dataset=train_dataset,
+                    idxs=device_idxs[i],
+                    device_num=i,
+                    device=device,
+                    model=copy.deepcopy(model),  # Avoid continuously training same model on different devices
+                    args=self.args
+                )
+                device_weights[i] = weights
+                model_name = "model/client"+str(i)+".pth"
+                torch.save(obj=weights,f=model_name)
+        else:
+            for i in range(self.args.num_devices):
+                model_name = "model/client" + str(i) + ".pth"
+                device_weights[i] = torch.load(model_name)
 
         for i in range(self.args.num_devices):
             first = True
@@ -132,21 +145,93 @@ class test():
         #     client_list_by_label[labels[i]].append(i)
         #print(client_list_by_label)
 
-        ms = MeanShift()
+        # ms = MeanShift()
+        # ms.bandwidth = 3.54
+        #bandwidth = sklearn.cluster.estimate_bandwidth(kmeans_weights, quantile=0.3, n_samples=10, random_state=0)
         # 得到Mean-Sift方法
-        ms.fit(kmeans_weights)
-        labels1 = ms.labels_
-        labels_unique = np.unique(labels1)
+        # for i in range(100):
+        #     ms.bandwidth = ms.bandwidth+0.01
+        #     ms.fit(kmeans_weights)
+        #     labels1 = ms.labels_
+        #     labels_unique = np.unique(labels1)
+        #     n_clusters_ = len(labels_unique)
+        #     if n_clusters_ <=10:
+        #         print(i)
+        #         break
+        # ms.bandwidth = ms.bandwidth + 0.01
+        # ms.fit(kmeans_weights)
+        # labels1 = ms.labels_
+        # labels_unique = np.unique(labels1)
+        # n_clusters_ = len(labels_unique)
+        # # ms.bandwidth = 3
+        # # ms.fit(kmeans_weights)
+        # # labels1 = ms.labels_
+        # # labels_unique = np.unique(labels1)
+        # # n_clusters_ = len(labels_unique)
+        # client_list_by_label1 = [[] for i in range(n_clusters_)]
+        # for i in range(self.args.num_devices):
+        #     # 在相应数据类别的列表中 加入设备index
+        #     client_list_by_label1[labels1[i]].append(i)
+        # print(client_list_by_label1)
+
+        import matplotlib.pyplot as plt
+
+        tsne = TSNE(n_components=2)
+        tsne_weights = tsne.fit_transform(kmeans_weights)
+
+        x_min, x_max = tsne_weights.min(0), tsne_weights.max(0)
+        X_norm = (tsne_weights - x_min) / (x_max - x_min)  # 归一化
+
+
+
+
+
+
+
+
+
+        ms1 = DBSCAN(eps=0.1,min_samples=5,metric='euclidean')
+        ms1.fit(X_norm)
+        labels2 = ms1.labels_
+        labels_unique = np.unique(labels2)
         n_clusters_ = len(labels_unique)
-        client_list_by_label1 = [[] for i in range(n_clusters_)]
+
+        color_list = []
+
+        client_list_by_label2 = [[] for i in range(n_clusters_)]
         for i in range(self.args.num_devices):
             # 在相应数据类别的列表中 加入设备index
-            client_list_by_label1[labels1[i]].append(i)
-        print(client_list_by_label1)
+            client_list_by_label2[labels2[i]].append(i)
+            color_list.append(labels2[i])
+        print(client_list_by_label2)
+
+        fig, ax = plt.subplots()
+
+        scatter = ax.scatter(X_norm[:, 0], X_norm[:, 1], c=color_list)
+        for i in range(X_norm.shape[0]):
+            #plt.scatter(X_norm)
+            plt.text(X_norm[i, 0], X_norm[i, 1], str(i), #color=plt.cm.Set1(y[i]),
+                     fontdict={'size': 6})
+        # legend1 = ax.legend(*scatter.legend_elements(),
+        #                     loc="lower right", title="classes")
+        # ax.add_artist(legend1)
+        handles, labels = scatter.legend_elements(prop="sizes", alpha=0.6)
+
+        plt.show()
+
+        # for i in range(X_norm.shape[0]):
+        #     #plt.scatter(X_norm)
+        #     plt.text(X_norm[i, 0], X_norm[i, 1], str(client_labels[i]), #color=plt.cm.Set1(y[i]),
+        #              fontdict={'weight': 'bold', 'size': 9})
+        # plt.xticks([])
+        # plt.yticks([])
+        # plt.show()
+
 
 
 if __name__ == "__main__":
     #non-iid(1)   50round
+
     args = Parser().parse()
     print(args)
     test(args).run()
