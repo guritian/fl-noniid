@@ -91,19 +91,19 @@ class FederatedLearning():
         device_weights = []
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
-        #对每个client进行预训练，使
-        pretrain_epoch = self.args.pretrain_epoch
-        for i in range(self.args.num_devices):
-            weights, loss = Trainer().pre_train(
-                epoch = pretrain_epoch,
-                dataset = train_dataset,
-                idxs = device_idxs[i],
-                device_num = i,
-                device = device,
-                model = copy.deepcopy(model),  # Avoid continuously training same model on different devices
-                args = self.args
-            )
-            device_weights[i] = weights
+        # #对每个client进行预训练，使
+        # pretrain_epoch = self.args.pretrain_epoch
+        # for i in range(self.args.num_devices):
+        #     weights, loss = Trainer().pre_train(
+        #         epoch = pretrain_epoch,
+        #         dataset = train_dataset,
+        #         idxs = device_idxs[i],
+        #         device_num = i,
+        #         device = device,
+        #         model = copy.deepcopy(model),  # Avoid continuously training same model on different devices
+        #         args = self.args
+        #     )
+        #     device_weights[i] = weights
 
 
         #赋一个初值
@@ -181,7 +181,9 @@ class FederatedLearning():
                 copy.deepcopy(model),
                 self.args
             )
-            writer.add_scalar('accuracy1',
+
+            scalar_name = 'accuracy_avg_'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)
+            writer.add_scalar(scalar_name,
                               accuracy,
                               round)
 

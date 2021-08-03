@@ -227,6 +227,19 @@ class test():
         # plt.yticks([])
         # plt.show()
 
+class renameFile():
+    def __init__(self, args):
+        self.args = args
+
+    def run(self):
+        for i in range(self.args.num_devices):
+            filename = "model/client" + str(i) + ".pth"
+            newfilename = "model/client" +str(self.args.class_per_device)+"_"+ str(i) + ".pth"
+            try:
+                os.rename(filename,newfilename)
+            except Exception as e:
+                print(e)
+
 
 
 if __name__ == "__main__":
@@ -235,3 +248,4 @@ if __name__ == "__main__":
     args = Parser().parse()
     print(args)
     test(args).run()
+    #renameFile(args).run()

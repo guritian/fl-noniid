@@ -133,7 +133,7 @@ class Trainer():
                 output = model(data)
                 loss = loss_function(output, target)
                 loss.backward()
-                updateBN(model,args)
+                #updateBN(model,args)
                 optimizer.step()
 
                 if args.learning == "f" or args.learning == "fd":

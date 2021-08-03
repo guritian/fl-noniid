@@ -13,7 +13,7 @@ class Parser():
         parser.add_argument("--round", help="communication rounds", 
                             default=250, type=int)
         parser.add_argument("--lr", help="learning rate",
-                            default=0.01, type=float)
+                            default=0.1, type=float)
         parser.add_argument("--sgd_momentum", help="sgd momentum", 
                             default=0, type=float)
         parser.add_argument("--optim", help="optimizer (sgd, adagrad, adam)", 
@@ -27,7 +27,7 @@ class Parser():
                             default="lenet", type=str)
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
-                            default=3, type=int)
+                            default=4, type=int)
         parser.add_argument("--class_num",
                             help="数据集 数据类别总数",
                             default=10, type=int)
@@ -36,7 +36,7 @@ class Parser():
 
         parser.add_argument("--pretrain_epoch",
                             help="预训练轮次",
-                            default=200, type=int)
+                            default=300, type=int)
         parser.add_argument("--cluster_num",
                             help="聚类中心数量",
                             default=10, type=int)

@@ -19,7 +19,8 @@ from trainer import Trainer, Tester
 import copy
 from models import *
 from torch.utils.data import Dataset, DataLoader
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans,DBSCAN
+from sklearn.manifold import TSNE
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -272,6 +273,7 @@ class FederatedLearning():
 
         #每个client保存自己的BN层参数
         device_weights = []
+        inital_weight = copy.deepcopy(model.state_dict())
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
 
@@ -700,21 +702,36 @@ class FederatedLearning1():
 
         # 每个client保存自己的网络参数
         device_weights = []
+
+        init_weights = copy.deepcopy(model.state_dict())
         for i in range(self.args.num_devices):
             device_weights.append(copy.deepcopy(model.state_dict()))
-        #对每个client进行预训练，使
-        pretrain_epoch = self.args.pretrain_epoch
-        for i in range(self.args.num_devices):
-            weights, loss = Trainer().pre_train(
-                epoch = pretrain_epoch,
-                dataset = train_dataset,
-                idxs = device_idxs[i],
-                device_num = i,
-                device = device,
-                model = copy.deepcopy(model),  # Avoid continuously training same model on different devices
-                args = self.args
-            )
-            device_weights[i] = weights
+
+        model_name = './model/client'+str(self.args.class_per_device)+"_"+ str(i) + ".pth"
+        flag = os.path.exists()
+        if flag:
+            # 对每个client进行预训练，使
+            pretrain_epoch = self.args.pretrain_epoch
+
+            for i in range(self.args.num_devices):
+                weights, loss = Trainer().pre_train(
+                    epoch=pretrain_epoch,
+                    dataset=train_dataset,
+                    idxs=device_idxs[i],
+                    device_num=i,
+                    device=device,
+                    model=copy.deepcopy(model),  # Avoid continuously training same model on different devices
+                    args=self.args
+                )
+                device_weights[i] = weights
+                model_name = "model/client" +str(self.args.class_per_device)+"_"+ str(i) + ".pth"
+                torch.save(obj=weights, f=model_name)
+        else:
+            for i in range(self.args.num_devices):
+                model_name = "model/client" +str(self.args.class_per_device)+"_" + str(i) + ".pth"
+                device_weights[i] = torch.load(model_name)
+
+
         #对client进行聚类
         kmeans_weights = []
         for i in range(self.args.num_devices):
@@ -729,16 +746,28 @@ class FederatedLearning1():
                     transform_feature = np.append(transform_feature,numpy_para)
                 #print(transform_feature.shape)
             kmeans_weights.append(transform_feature)
-        kmean = KMeans(n_clusters=self.args.cluster_num)
-        kmean.fit(kmeans_weights)
-        labels = kmean.labels_
-        centers = kmean.cluster_centers_
-        client_list_by_label = [[] for i in range(self.args.cluster_num)]
+
+        tsne = TSNE(n_components=2)
+        tsne_weights = tsne.fit_transform(kmeans_weights)
+
+        x_min, x_max = tsne_weights.min(0), tsne_weights.max(0)
+        X_norm = (tsne_weights - x_min) / (x_max - x_min)  # 归一化
+
+        ms = DBSCAN(eps=0.1, min_samples=5, metric='euclidean')
+        ms.fit(X_norm)
+        labels = ms.labels_
+        labels_unique = np.unique(labels)
+        n_clusters_ = len(labels_unique)
+
+
+        client_list_by_label = [[] for i in range(n_clusters_)]
         for i in range(self.args.num_devices):
             #在相应数据类别的列表中 加入设备index
             client_list_by_label[labels[i]].append(i)
 
-        #赋一个初值
+        #还是从原始模型开始训练
+        for i in range(self.args.num_devices):
+            device_weights[i] = init_weights
         avg_weights = device_weights[0]
         for round in tqdm(range(self.args.round)):
             # Train step
@@ -770,10 +799,10 @@ class FederatedLearning1():
             #             train_devices.append(client_index)
             #根据聚类的结果 对client进行选择
 
-            #从每个簇中抽一台参与模型聚合
-            for i in range(self.args.cluster_num):
+            #从每个簇中抽足够数量台参与模型聚合
+            for i in range(n_clusters_):
                 #从每个簇中抽取client的数量
-                choose_num = math.ceil(self.args.num_devices * self.args.frac/self.args.cluster_num)
+                choose_num = math.ceil(self.args.num_devices * self.args.frac/n_clusters_)
                 random_index = random.sample(range(len(client_list_by_label[i])),choose_num)
                 #random_index = random.choice(range(len(client_list_by_label[i])))
                 for index in random_index:
@@ -828,7 +857,7 @@ class FederatedLearning1():
                 copy.deepcopy(model),
                 self.args
             )
-            scalar = 'accuracy'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)+"_cluster"+str(self.args.cluster_num)
+            scalar = 'accuracy'+str(self.args.round)+"_"+str(self.args.class_per_device)+"_lr"+str(self.args.lr)+"_cluster"+str(n_clusters_)
             writer.add_scalar(scalar,
                               accuracy,
                               round)
