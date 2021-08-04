@@ -27,7 +27,7 @@ class Parser():
                             default="lenet", type=str)
         parser.add_argument("--class_per_device",
                             help="number of classes per device (non-iid, conflict with noniidness)",
-                            default=4, type=int)
+                            default=1, type=int)
         parser.add_argument("--class_num",
                             help="数据集 数据类别总数",
                             default=10, type=int)
