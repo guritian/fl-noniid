@@ -178,6 +178,13 @@ class Tester():
             for idx, (data, target) in enumerate(dataloader):
                 data, target = data.to(device), target.to(device)
                 output = model(data)
+                #TODO
+                if output.shape[1]<args.class_num:
+                    shape = output.shape[1]
+                    output1 = torch.zeros(target.size(0), args.class_num).to(device)
+                    output1[:, :] = -9e+9
+                    output1[:, :shape] = output
+                    output = output1
                 loss = loss_function(output, target)
                 losses.append(loss.item())
 

@@ -9,8 +9,6 @@ from arg_parser import Parser
 from arg_parser1 import  Parser1
 from src.models.lenet1 import LeNet1
 from src.models.lenetBN import LeNetBN
-from src.models.network1 import network1
-
 from utils import Utils
 import torch
 import numpy as np
@@ -47,34 +45,32 @@ class KDLoss():
         preds = F.softmax(preds, dim=-1)
         preds = torch.pow(preds, 1. / self.temp)
         # l_preds = F.softmax(preds, dim=-1)
-        #l_preds = self.log_sotfmax(preds)
-        l_preds = F.softmax(preds,dim=-1)
+        l_preds = self.log_sotfmax(preds)
+
 
         gts = F.softmax(gts, dim=-1)
         gts = torch.pow(gts, 1. / self.temp)
-        #l_gts = self.log_sotfmax(gts)
-        l_gts = F.softmax(gts,dim=-1)
+        l_gts = self.log_sotfmax(gts)
 
-        l_preds = torch.log(l_preds)
-        l_preds[l_preds != l_preds] = 0.
+
+        l_preds = torch.log(preds)
         #l_preds[l_preds != l_preds] = 0.  # Eliminate NaN values
         loss = torch.mean(torch.sum(-l_gts * l_preds, axis=1))
         return loss
 
 class TotalLoss():
-    def __init__(self,temp=2, lambda_old=0.5):
+    def __init__(self,temp=2, lambda_old=1):
         self.kd_loss = KDLoss(temp=temp)
         self.ce_loss = nn.CrossEntropyLoss()
         self.lambda_old = lambda_old
 
     def __call__(self, preds, gts, old_preds=None, old_gts=None):
-        preds_old, preds_new = preds[:, :2], preds[:, 2:4]
+        preds_old, preds_new = preds[:, :2], preds[:, 3:4]
+        old_gts = F.softmax(old_gts, dim=-1)
         old_gts = old_gts[:,:2]
-        #old_gts = F.softmax(old_gts, dim=-1)
         old_task_loss = 0
         old_task_loss = self.kd_loss(preds_old, old_gts)
-
-        new_task_loss = self.ce_loss(preds ,gts)
+        new_task_loss = self.ce_loss(preds, gts)
 
         total_loss = self.lambda_old * old_task_loss + new_task_loss
         return total_loss
@@ -129,13 +125,13 @@ class FederatedLearning():
         if self.args.model == "vgg11":
             model = VGG("VGG11", num_classes)
         elif self.args.model == "lenet":
-            model = network1(2)
+            model = LeNet(num_classes)
         else:
             model = ResNet18(num_classes)
 
 
         #client1的模型
-        model_new = network1(4)
+        model_new = LeNet1(num_classes)
 
         # 每个client保存自己的网络参数
         device_weights = []
@@ -143,7 +139,7 @@ class FederatedLearning():
             device_weights.append(copy.deepcopy(model.state_dict()))
         #对client 0,1 进行预训练，使
         pretrain_epoch = self.args.pretrain_epoch
-        pretrain_epoch = 500
+        pretrain_epoch = 300
         for i in range(1):
             weights, loss = Trainer().pre_train(
                 epoch = pretrain_epoch,
@@ -165,28 +161,14 @@ class FederatedLearning():
         )
 
 
-        #将model网络参数 放入 model_new 中
 
-        # 清空old_model梯度
+        model_new.load_state_dict(device_weights[0])
+        #清空old_model梯度
         model.zero_grad()
-        #最后一层参数进行初始化
-        new_fc3 = nn.Linear(168, 4)
-
+        new_fc3 = nn.Linear(168, num_classes)
         kaiming_normal_init(new_fc3)
-
-
-        state_dict = model.state_dict()
-        model_old_fc3_weight = state_dict['fc3.weight']
-        model_old_fc3_bias = state_dict['fc3.bias']
-        state_dict = {k: v for k, v in state_dict.items() if 'fc3' not in k}
-
-        new_fc3.weight.data[:2] = model_old_fc3_weight
-        new_fc3.bias.data[:2] = model_old_fc3_bias
-        state_dict['fc3.weight'] = new_fc3.weight
-        state_dict['fc3.bias'] = new_fc3.bias
-        model_new.load_state_dict(state_dict)
-
-
+        model_new.fc3.weight.data = new_fc3.weight.data
+        model_new.fc3.bias.data = new_fc3.bias.data
 
 
         #finetune
@@ -204,15 +186,10 @@ class FederatedLearning():
         model = model.to(device)
         model_new.train()  # Train mode
 
-        # optimizer = torch.optim.SGD(
-        #     model_new.parameters(),
-        #     lr=0.0001,
-        #     momentum=args.sgd_momentum
-        # )
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.SGD(
                 model_new.parameters(),
-                lr=0.0001,
-                betas=(0.5, 0.9), weight_decay=5e-4
+                lr=0.01*0.02,
+                momentum=args.sgd_momentum
             )
         #从client1 中提取数据训练
         dataloader = DataLoader(
@@ -225,7 +202,7 @@ class FederatedLearning():
         criterion = TotalLoss(temp=2)
         losses = []
         criterion1 = nn.CrossEntropyLoss().to(device)
-        for epoch in range(500):
+        for epoch in range(1000):
             batch_losses = []
             for idx, (data, target) in enumerate(dataloader):
                 data, target = data.to(device), target.to(device)
@@ -236,7 +213,8 @@ class FederatedLearning():
 
                 output = model_new(data)
                 #TODO  极有可能要修改
-                loss = criterion(output, target,old_preds=output,old_gts=old_outputs)
+                #loss = criterion(output, target,old_preds=output,old_gts=old_outputs)
+                loss = criterion1(output,target)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
