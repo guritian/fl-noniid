@@ -129,13 +129,13 @@ class FederatedLearning():
         if self.args.model == "vgg11":
             model = VGG("VGG11", num_classes)
         elif self.args.model == "lenet":
-            model = network1(2)
+            model = network1(2,4)
         else:
             model = ResNet18(num_classes)
 
 
         #client1的模型
-        model_new = network1(4)
+        model_new = network1(2,4)
 
         # 每个client保存自己的网络参数
         device_weights = []
@@ -176,14 +176,14 @@ class FederatedLearning():
 
 
         state_dict = model.state_dict()
-        model_old_fc3_weight = state_dict['fc3.weight']
-        model_old_fc3_bias = state_dict['fc3.bias']
-        state_dict = {k: v for k, v in state_dict.items() if 'fc3' not in k}
+        model_old_fc3_weight = state_dict['fc3_old.weight']
+        model_old_fc3_bias = state_dict['fc3_old.bias']
+        state_dict = {k: v for k, v in state_dict.items() if 'fc3_new' not in k}
 
         new_fc3.weight.data[:2] = model_old_fc3_weight
         new_fc3.bias.data[:2] = model_old_fc3_bias
-        state_dict['fc3.weight'] = new_fc3.weight
-        state_dict['fc3.bias'] = new_fc3.bias
+        state_dict['fc3_new.weight'] = new_fc3.weight
+        state_dict['fc3_new.bias'] = new_fc3.bias
         model_new.load_state_dict(state_dict)
 
 
@@ -234,9 +234,11 @@ class FederatedLearning():
                 with torch.no_grad():
                     old_outputs = model(data)
 
-                output = model_new(data)
+                output = model_new(data,1)
+                output_preds = model_new(data)
+
                 #TODO  极有可能要修改
-                loss = criterion(output, target,old_preds=output,old_gts=old_outputs)
+                loss = criterion(output, target,old_preds=output_preds,old_gts=old_outputs)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
